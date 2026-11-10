@@ -301,6 +301,21 @@ class AuthorizationCodeGrantTest(TestCase):
                           self.auth.validate_token_request, self.request)
 
     # PKCE functions
+    def test_code_challenge_methods_compare_in_constant_time(self):
+        # CVE-2026-49265: the verifier must not be compared with ==, whose
+        # running time leaks the length of the matching prefix.
+        with mock.patch('oauthlib.common.safe_string_equals',
+                        return_value=True) as safe:
+            self.assertTrue(authorization_code.code_challenge_method_plain("foo", "foo"))
+            safe.assert_called_once_with("foo", "foo")
+            safe.reset_mock()
+            self.assertTrue(authorization_code.code_challenge_method_s256(
+                "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk",
+                "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"))
+            safe.assert_called_once_with(
+                "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+                "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM")
+
     def test_wrong_code_challenge_method_plain(self):
         self.assertFalse(authorization_code.code_challenge_method_plain("foo", "bar"))
 
