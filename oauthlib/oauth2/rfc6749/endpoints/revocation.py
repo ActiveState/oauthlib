@@ -10,6 +10,7 @@ An implementation of the OAuth 2 `Token Revocation`_ spec (draft 11).
 from __future__ import absolute_import, unicode_literals
 
 import logging
+import re
 
 from oauthlib.common import Request
 
@@ -17,6 +18,16 @@ from ..errors import OAuth2Error, UnsupportedTokenTypeError
 from .base import BaseEndpoint, catch_errors_and_unavailability
 
 log = logging.getLogger(__name__)
+
+# A JSONP callback must be a dotted JavaScript identifier such as
+# ``package.callback``. Anything else would let the caller write arbitrary
+# JavaScript into the response (CVE-2026-49264).
+_JSONP_CALLBACK_RE = re.compile(
+    r'^[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)*\Z')
+
+
+def _valid_jsonp_callback(callback):
+    return bool(callback) and _JSONP_CALLBACK_RE.match(callback) is not None
 
 
 class RevocationEndpoint(BaseEndpoint):
@@ -72,7 +83,7 @@ class RevocationEndpoint(BaseEndpoint):
         except OAuth2Error as e:
             log.debug('Client error during validation of %r. %r.', request, e)
             response_body = e.json
-            if self.enable_jsonp and request.callback:
+            if self.enable_jsonp and _valid_jsonp_callback(request.callback):
                 response_body = '%s(%s);' % (request.callback, response_body)
             resp_headers.update(e.headers)
             return resp_headers, response_body, e.status_code
@@ -81,7 +92,7 @@ class RevocationEndpoint(BaseEndpoint):
                                             request.token_type_hint, request)
 
         response_body = ''
-        if self.enable_jsonp and request.callback:
+        if self.enable_jsonp and _valid_jsonp_callback(request.callback):
             response_body = request.callback + '();'
         return {}, response_body, 200
 

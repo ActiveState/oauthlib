@@ -104,6 +104,41 @@ class RevocationEndpointTest(TestCase):
             self.assertEqual(b, callback + '();')
             self.assertEqual(s, 200)
 
+    def test_revoke_with_invalid_callback(self):
+        # CVE-2026-49264: a callback that is not a dotted identifier must not
+        # be reflected into the response, on success or on error.
+        endpoint = RevocationEndpoint(self.validator, enable_jsonp=True)
+        for callback in ('alert(document.domain)//', 'a;b', 'x y', '1abc',
+                         'a..b', 'a.', '</script><script>x'):
+            body = urlencode([('token', 'foo'),
+                              ('token_type_hint', 'access_token'),
+                              ('callback', callback)])
+            h, b, s = endpoint.create_revocation_response(self.uri,
+                    headers=self.headers, body=body)
+            self.assertEqual(b, '')
+            self.assertEqual(s, 200)
+
+        self.validator.authenticate_client.return_value = False
+        body = urlencode([('token', 'foo'),
+                          ('token_type_hint', 'access_token'),
+                          ('callback', 'alert(1)//')])
+        h, b, s = endpoint.create_revocation_response(self.uri,
+                headers=self.headers, body=body)
+        self.assertEqual(loads(b)['error'], 'invalid_client')
+        self.assertNotIn('alert', b)
+        self.assertEqual(s, 401)
+
+    def test_revoke_with_valid_callback_on_error(self):
+        endpoint = RevocationEndpoint(self.validator, enable_jsonp=True)
+        self.validator.authenticate_client.return_value = False
+        body = urlencode([('token', 'foo'),
+                          ('token_type_hint', 'access_token'),
+                          ('callback', 'package.cb_1')])
+        h, b, s = endpoint.create_revocation_response(self.uri,
+                headers=self.headers, body=body)
+        self.assertTrue(b.startswith('package.cb_1({'))
+        self.assertTrue(b.endswith('});'))
+
     def test_revoke_unsupported_token(self):
         endpoint = RevocationEndpoint(self.validator,
                                       supported_token_types=['access_token'])
