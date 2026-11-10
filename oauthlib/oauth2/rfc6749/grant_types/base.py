@@ -163,6 +163,22 @@ class GrantTypeBase(object):
                       request.client_id, request.client, request.grant_type)
             raise errors.UnauthorizedClientError(request=request)
 
+    def _bind_client_id(self, request):
+        """Make request.client_id name the client that authenticated.
+
+        The client_id parameter in a token request is attacker-controlled. Once
+        a client has authenticated, its identity is request.client.client_id,
+        and a different client_id in the request must not be used to validate
+        the grant type or the scopes (CVE-2026-118669).
+        """
+        client_id = getattr(request.client, 'client_id', None)
+        if client_id is None:
+            return
+        if not request.client_id:
+            request.client_id = client_id
+        elif request.client_id != client_id:
+            raise errors.ServerError('Discrepency found between client identifier')
+
     def validate_scopes(self, request):
         """
         :param request: OAuthlib request.

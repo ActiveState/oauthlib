@@ -192,11 +192,12 @@ class ResourceOwnerPasswordCredentialsGrant(GrantTypeBase):
                     'in authenticate_client.')
         log.debug('Authorizing access to user %r.', request.user)
 
+        if request.client:
+            self._bind_client_id(request)
+
         # Ensure client is authorized use of this grant type
         self.validate_grant_type(request)
 
-        if request.client:
-            request.client_id = request.client_id or request.client.client_id
         self.validate_scopes(request)
 
         for validator in self.custom_validators.post_token:
