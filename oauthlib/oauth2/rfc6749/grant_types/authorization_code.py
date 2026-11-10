@@ -47,9 +47,10 @@ def code_challenge_method_s256(verifier, challenge):
 
     .. _`Section 4.3`: https://tools.ietf.org/html/rfc7636#section-4.3
     """
-    return base64.urlsafe_b64encode(
+    expected = base64.urlsafe_b64encode(
         hashlib.sha256(verifier.encode()).digest()
-    ).decode().rstrip('=') == challenge
+    ).decode().rstrip('=')
+    return common.safe_string_equals(expected, challenge)
 
 
 def code_challenge_method_plain(verifier, challenge):
@@ -61,7 +62,7 @@ def code_challenge_method_plain(verifier, challenge):
 
     .. _`Section 4.3`: https://tools.ietf.org/html/rfc7636#section-4.3
     """
-    return verifier == challenge
+    return common.safe_string_equals(verifier, challenge)
 
 
 class AuthorizationCodeGrant(GrantTypeBase):

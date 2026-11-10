@@ -1,6 +1,21 @@
 Changelog
 =========
 
+3.1.0.post1 (2026-11-10)
+------------------------
+
+ActiveState security release for the Python 2.7 line. Fixes backported from
+oauthlib 4.0.0, which requires Python 3.
+
+OAuth2.0 Provider - Security
+* CVE-2026-118669 (GHSA-7984-qgvg-3j9c): the client_credentials and password
+  grants take client_id from the authenticated client; a different client_id
+  in the request raises ServerError.
+* CVE-2026-49264 (GHSA-hj66-6f7g-4r5v): RevocationEndpoint uses the JSONP
+  callback only when it is a dotted JavaScript identifier.
+* CVE-2026-49265 (GHSA-xpv3-w29h-x7cv): PKCE code verifiers are compared in
+  constant time.
+
 3.1.0 (TBD)
 ------------------
 

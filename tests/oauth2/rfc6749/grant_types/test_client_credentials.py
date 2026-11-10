@@ -77,3 +77,26 @@ class ClientCredentialsGrantTest(TestCase):
     def test_validate_token_response(self):
         # wrong grant type, scope
         pass
+
+    def test_client_id_must_match_authenticated_client(self):
+        # CVE-2026-118669: a client_id in the body that names another client
+        # must not be used to validate the grant type or the scopes.
+        self.request.client.client_id = 'low-privilege'
+        self.request.client_id = 'admin-client'
+        bearer = BearerToken(self.mock_validator)
+        headers, body, status_code = self.auth.create_token_response(
+                self.request, bearer)
+        self.assertEqual(json.loads(body)['error'], 'server_error')
+        self.assertFalse(self.mock_validator.validate_grant_type.called)
+        self.assertFalse(self.mock_validator.validate_scopes.called)
+        self.assertFalse(self.mock_validator.save_token.called)
+
+    def test_client_id_defaults_to_authenticated_client(self):
+        self.request.client.client_id = 'low-privilege'
+        self.request.client_id = None
+        bearer = BearerToken(self.mock_validator)
+        self.auth.create_token_response(self.request, bearer)
+        self.assertEqual(self.request.client_id, 'low-privilege')
+        self.assertEqual(
+            self.mock_validator.validate_grant_type.call_args[0][0],
+            'low-privilege')

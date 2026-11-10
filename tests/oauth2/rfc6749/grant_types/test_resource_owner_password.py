@@ -156,3 +156,16 @@ class ResourceOwnerPasswordCredentialsGrantTest(TestCase):
     def test_valid_token_request(self):
         self.mock_validator.validate_grant_type.return_value = True
         self.auth.validate_token_request(self.request)
+
+    def test_client_id_must_match_authenticated_client(self):
+        # CVE-2026-118669: a client_id in the body that names another client
+        # must not be used to validate the grant type or the scopes.
+        self.request.client.client_id = 'low-privilege'
+        self.request.client_id = 'admin-client'
+        bearer = BearerToken(self.mock_validator)
+        headers, body, status_code = self.auth.create_token_response(
+                self.request, bearer)
+        self.assertEqual(json.loads(body)['error'], 'server_error')
+        self.assertFalse(self.mock_validator.validate_grant_type.called)
+        self.assertFalse(self.mock_validator.validate_scopes.called)
+        self.assertFalse(self.mock_validator.save_token.called)
